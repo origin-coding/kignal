@@ -883,6 +883,37 @@ unless the project intentionally grows beyond signals.
 
 ---
 
+## Commit Message Guidelines
+
+When generating commit messages, use English and follow Conventional Commits.
+
+Include a meaningful scope when it adds useful context or is necessary to identify the affected area.
+
+The first line should be a concise description:
+
+```text
+type(scope): short imperative summary
+```
+
+Examples:
+
+```text
+chore: initialize Gradle Kotlin monorepo
+
+- Add Gradle Kotlin DSL multi-module project setup
+- Add initial kignal-core module with Kotlin/JVM configuration
+- Configure JUnit Jupiter and AssertJ test dependencies
+- Add Gradle Wrapper configuration for Gradle 9.6.0
+- Add EditorConfig and Git ignore defaults
+- Document project agent instructions
+```
+
+After the first line, include necessary supporting details as an unordered list using `-`.
+
+Prefer commit messages that match the style of recent repository history. If the expected style is unclear, inspect previous commits before generating a new commit message.
+
+---
+
 ## What Not To Do
 
 Do not:
