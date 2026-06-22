@@ -1,6 +1,7 @@
 package io.github.origincoding.kignal
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 class EffectTest {
@@ -109,5 +110,33 @@ class EffectTest {
         count.value = 2
 
         assertThat(values).containsExactly(2, 4)
+    }
+
+    @Test
+    fun `effect error propagates during initial run`() {
+        assertThatThrownBy {
+            effect {
+                error("boom")
+            }
+        }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("boom")
+    }
+
+    @Test
+    fun `effect error propagates during synchronous rerun`() {
+        val count = signal(0)
+
+        effect {
+            if (count.value > 0) {
+                error("boom")
+            }
+        }
+
+        assertThatThrownBy {
+            count.value = 1
+        }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("boom")
     }
 }

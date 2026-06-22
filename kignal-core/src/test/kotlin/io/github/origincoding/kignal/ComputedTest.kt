@@ -1,6 +1,7 @@
 package io.github.origincoding.kignal
 
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 class ComputedTest {
@@ -109,5 +110,18 @@ class ComputedTest {
         count.value = 2
 
         assertThat(quadruple.value).isEqualTo(8)
+    }
+
+    @Test
+    fun `computed error propagates to reader`() {
+        val result = computed<Int> {
+            error("boom")
+        }
+
+        assertThatThrownBy {
+            result.value
+        }
+            .isInstanceOf(IllegalStateException::class.java)
+            .hasMessage("boom")
     }
 }
