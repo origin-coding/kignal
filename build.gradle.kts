@@ -6,7 +6,7 @@ plugins {
 
 subprojects {
     group = "io.github.origincoding.kignal"
-    version = "0.1.0-SNAPSHOT"
+    version = "1.0.0"
 
     tasks.withType<Test>().configureEach {
         useJUnitPlatform()
