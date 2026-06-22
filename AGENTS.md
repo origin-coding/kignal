@@ -881,6 +881,52 @@ reactive-kt
 
 unless the project intentionally grows beyond signals.
 
+### Documentation Naming Guidelines
+
+Use simple, sortable Markdown file names for project documentation.
+
+Development documents should include a date prefix because they usually capture decisions, plans, or implementation notes at a point in time:
+
+```text
+docs/dev/YYYY-MM-DD-topic.md
+```
+
+Examples:
+
+```text
+docs/dev/2026-06-22-1.0-mvp.md
+docs/dev/2026-06-22-core-runtime-design.md
+docs/dev/2026-06-23-dependency-tracking-notes.md
+```
+
+Wiki documents should use stable topic names without date prefixes because they are intended to be long-lived reference pages:
+
+```text
+docs/wiki/topic-name.md
+```
+
+Examples:
+
+```text
+docs/wiki/signals.md
+docs/wiki/computed.md
+docs/wiki/effects.md
+docs/wiki/dependency-tracking.md
+```
+
+Blog documents should include a date prefix because they are chronological articles or development logs:
+
+```text
+docs/blog/YYYY-MM-DD-title.md
+```
+
+Examples:
+
+```text
+docs/blog/2026-06-22-starting-kignal.md
+docs/blog/2026-06-23-building-a-small-signals-runtime.md
+```
+
 ---
 
 ## Commit Message Guidelines
