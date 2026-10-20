@@ -1,97 +1,77 @@
 # Kignal
 
-Kignal is a Kotlin/JVM learning project for building a small fine-grained reactivity runtime inspired by signals libraries such as `alien-signals`.
+Kignal is a small, synchronous Kotlin/JVM signals library and personal learning project inspired by `alien-signals`.
 
-The first MVP focuses on a clear synchronous core instead of production-grade optimization.
+The current core provides mutable signals, lazy computed values, effects, dynamic dependency tracking and cleanup, effect disposal, and `untracked` reads. The project focuses on understandable internals and tested behavior. This synchronous core is the current project scope; additional features will be considered when there is a concrete use case.
 
-## MVP Scope
+## Quick Start
 
-The current core API includes:
+The public API lives in `io.github.origincoding.kignal`:
 
 ```kotlin
-val count = signal(1)
+import io.github.origincoding.kignal.computed
+import io.github.origincoding.kignal.effect
+import io.github.origincoding.kignal.signal
 
+val count = signal(1)
 val double = computed {
     count.value * 2
 }
 
 val stop = effect {
-    println(double.value)
+    println("${count.value}, ${double.value}")
 }
+// Prints: 1, 2
 
 count.value = 2
+// Prints: 2, 4
+
 stop.dispose()
+count.value = 3
+// The disposed effect does not run.
+check(double.value == 6)
 ```
 
-Included in the MVP:
+Use `.value` for explicit reads and writes. `count()` is also available as shorthand for reading. `computed` returns a read-only `Signal<T>`; `signal` returns a `MutableSignal<T>`.
 
-- `signal`
-- `computed`
-- `effect`
-- dependency tracking
-- dependency cleanup
-- effect disposal
-- `untracked`
+## Documentation
 
-The public signal interface is named `Signal<T>`:
+- [Usage examples](docs/wiki/usage.md): caching, dynamic dependencies, untracked reads, disposal, and errors.
+- [Runtime contract](docs/wiki/runtime-contract.md): equality, propagation, execution order, lifetime, and error behavior.
+- [Design choices](docs/wiki/design-choices.md): the graph model, two-phase propagation, lazy computation, and scope decisions.
+- [Original MVP plan](docs/dev/2026-06-22-1.0-mvp.md): the historical implementation target.
 
-```kotlin
-interface Signal<out T> {
-    val value: T
-    operator fun invoke(): T = value
-}
+## Execution Model
 
-interface MutableSignal<T> : Signal<T> {
-    override var value: T
-}
+The core runtime is designed for single-threaded reactive graph execution. Signal reads, computed functions, and effect bodies are synchronous. Computed bodies should only derive values, without writing signals or creating effects.
+
+Each changed signal write has two phases:
+
+1. Traverse all affected downstream nodes, mark computed values dirty, and queue effects. No computed or effect body runs during invalidation.
+2. Run pending effects. Dirty computed values recalculate when read. A top-level write returns when the pending effects finish, or throws if execution fails.
+
+An effect runs immediately when created. Writes inside an effect invalidate downstream nodes immediately, while queued effects wait until the current effect body returns. An effect is queued once while pending, and can be queued again after it has run. Separate top-level writes flush separately.
+
+Errors propagate synchronously. A flush attempts other pending effects after a failure, then throws the first error with additional errors attached as suppressed exceptions. A flush stops if one effect would run more than 100 times. See the [runtime contract](docs/wiki/runtime-contract.md) for recovery and lifetime details.
+
+## Build and Verify
+
+The current build uses a JDK 25 toolchain and the checked-in Gradle Wrapper. From the repository root, run:
+
+```shell
+# Windows PowerShell
+.\gradlew.bat check
+.\gradlew.bat build
 ```
 
-## Runtime Model
+On macOS or Linux, use `./gradlew check` and `./gradlew build`. To use the core from another module in this checkout, add `implementation(project(":kignal-core"))` to that module's dependencies. The commands above build and verify the local project; they do not publish an artifact.
 
-Kignal's core runtime is an imperative mutable dependency graph. Signals store source values, computed signals cache synchronous derived values, and effects subscribe to the signals they read while running.
+## Project Scope
 
-Each signal write has two synchronous phases:
+The current project does not include `batch`, scopes, custom schedulers, coroutines, Flow, Reactive Streams, Reactor, async resources, delegated properties, Kotlin Multiplatform, or benchmarks. These are optional future directions rather than a committed roadmap. The core has no thread-safety guarantees.
 
-1. The runtime traverses all affected downstream nodes using a work queue. Computed signals are marked dirty and effects are added to an ordered, deduplicated pending set. No computed or effect body runs during this phase.
-2. Once invalidation finishes, the runtime flushes pending effects. Computed signals recompute lazily when read, including reads made by effects. A top-level write returns after the pending effects finish, or throws if execution fails.
+## Feedback and Future Development
 
-Effects run once immediately when created. Writes inside an effect invalidate downstream nodes immediately, but queued effects wait until the current effect body returns. A pending effect is queued only once; an effect that has already run can be queued again by a later write. This does not make several separate top-level writes a public `batch`.
+Issues are welcome! Please [open an Issue](https://github.com/origin-coding/kignal/issues) for bugs, questions, or feature requests. For a bug, include a small reproducer and the expected and actual behavior. For a feature request, describe the use case you want to support.
 
-Internally, signals are `Producer` nodes, effects are `Consumer` nodes, and computed signals implement both roles. Dependency links and cleanup are maintained in one place. Old dependencies are removed before recomputation or rerun. Computed bodies should only derive values, without writing signals or creating effects.
-
-## Threading
-
-`kignal-core` is currently designed for single-threaded reactive graph execution.
-
-It does not provide thread-safety guarantees. Avoid reading or mutating the same reactive graph concurrently from multiple threads unless a future version explicitly documents support for that behavior.
-
-## Error Handling
-
-The current error policy is simple and synchronous:
-
-- computed errors propagate to the reader of `.value`
-- effect errors propagate during initial execution
-- effect errors propagate during synchronous reruns triggered by signal writes
-
-During an effect flush, the runtime continues running other pending effects after an effect fails, then throws the first error. Additional errors are attached as suppressed exceptions. Failed initial effect construction releases its subscriptions. A computed that throws stays dirty and can be retried on a later read or dependency change.
-
-To stop unbounded feedback updates, a flush throws if one effect would run more than 100 times. Pending work is cleared after this limit is reached, and runtime flushing state is restored. The limit also applies to long feedback sequences that would eventually settle.
-
-Errors are not swallowed by the runtime.
-
-## Non-Goals For The Current Core
-
-The current MVP does not include:
-
-- `batch`
-- scopes
-- scheduler abstraction
-- asynchronous effects
-- coroutine support
-- Flow interop
-- Reactive Streams or Reactor interop
-- resources
-- delegated property syntax
-- Kotlin Multiplatform
-- thread-safety guarantees
-- JMH benchmarks
+I may use Issues to guide future development, depending on the use case, project fit, and available time. Submitting an Issue does not guarantee implementation or a release date.
