@@ -4,13 +4,13 @@ import io.github.origincoding.kignal.MutableSignal
 
 internal class SignalNode<T>(
     initialValue: T,
-) : MutableSignal<T>, DependencySource {
-    private val subscribers = LinkedHashSet<ReactiveObserver>()
+) : MutableSignal<T>, Producer {
+    override val consumers = LinkedHashSet<Consumer>()
     private var currentValue = initialValue
 
     override var value: T
         get() {
-            KignalRuntime.track(this)
+            KignalRuntime.trackRead(this)
             return currentValue
         }
         set(newValue) {
@@ -19,20 +19,6 @@ internal class SignalNode<T>(
             }
 
             currentValue = newValue
-            notifySubscribers()
+            KignalRuntime.invalidate(this)
         }
-
-    override fun addSubscriber(observer: ReactiveObserver) {
-        subscribers.add(observer)
-    }
-
-    override fun removeSubscriber(observer: ReactiveObserver) {
-        subscribers.remove(observer)
-    }
-
-    private fun notifySubscribers() {
-        subscribers.toList().forEach { subscriber ->
-            subscriber.onDependencyChanged()
-        }
-    }
 }

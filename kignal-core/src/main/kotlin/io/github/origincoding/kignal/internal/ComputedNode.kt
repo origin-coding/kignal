@@ -4,9 +4,9 @@ import io.github.origincoding.kignal.Signal
 
 internal class ComputedNode<T>(
     private val block: () -> T,
-) : Signal<T>, DependencySource, ReactiveObserver {
-    private val dependencies = LinkedHashSet<DependencySource>()
-    private val subscribers = LinkedHashSet<ReactiveObserver>()
+) : Signal<T>, Producer, Consumer {
+    override val dependencies = LinkedHashSet<Producer>()
+    override val consumers = LinkedHashSet<Consumer>()
     private var initialized = false
     private var dirty = true
     private var computing = false
@@ -14,7 +14,7 @@ internal class ComputedNode<T>(
 
     override val value: T
         get() {
-            KignalRuntime.track(this)
+            KignalRuntime.trackRead(this)
 
             if (!initialized || dirty) {
                 recompute()
@@ -24,33 +24,14 @@ internal class ComputedNode<T>(
             return cachedValue as T
         }
 
-    override fun addDependency(source: DependencySource) {
-        if (dependencies.add(source)) {
-            source.addSubscriber(this)
-        }
-    }
-
-    override fun onDependencyChanged() {
-        if (dirty) {
-            return
-        }
-
+    fun markDirty() {
         dirty = true
-        notifySubscribers()
-    }
-
-    override fun addSubscriber(observer: ReactiveObserver) {
-        subscribers.add(observer)
-    }
-
-    override fun removeSubscriber(observer: ReactiveObserver) {
-        subscribers.remove(observer)
     }
 
     private fun recompute() {
         check(!computing) { "Recursive computed evaluation is not supported." }
 
-        cleanupDependencies()
+        DependencyGraph.clearDependencies(this)
         computing = true
 
         try {
@@ -61,19 +42,6 @@ internal class ComputedNode<T>(
             dirty = false
         } finally {
             computing = false
-        }
-    }
-
-    private fun cleanupDependencies() {
-        dependencies.forEach { dependency ->
-            dependency.removeSubscriber(this)
-        }
-        dependencies.clear()
-    }
-
-    private fun notifySubscribers() {
-        subscribers.toList().forEach { subscriber ->
-            subscriber.onDependencyChanged()
         }
     }
 }
